@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileUp, Menu } from "lucide-react";
+import { FileUp, ImageUp, Menu } from "lucide-react";
 
 import { callAndrewMyself } from "@/lib/call-andrew-myself";
 
@@ -24,6 +24,11 @@ const lessonMenus = [
     label: "파일 업로드",
     href: "/lesson/titanic/data-collection",
     icon: FileUp,
+  },
+  {
+    label: "이미지 업로드",
+    href: "/lesson/titanic/image-upload",
+    icon: ImageUp,
   },
 ];
 
