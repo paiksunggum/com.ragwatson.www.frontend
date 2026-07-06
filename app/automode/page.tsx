@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bot, BookUser, Mail, Send } from "lucide-react";
+import { Bot, BookUser, Mail, ScanFace, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -20,7 +20,7 @@ export type Contact = { name: string; email: string };
 
 const DEFAULT_CONTACTS: Contact[] = [{ name: "나", email: "bsgum@naver.com" }];
 
-type View = "email" | "contacts" | "telegram" | "orchestrator";
+type View = "email" | "contacts" | "telegram" | "orchestrator" | "detection";
 
 export default function AutomodePage() {
   const [view, setView] = React.useState<View>("email");
@@ -34,6 +34,45 @@ export default function AutomodePage() {
     tool: string;
     message: string;
   } | null>(null);
+  const [detecting, setDetecting] = React.useState(false);
+  const [detectionResult, setDetectionResult] = React.useState<{
+    predicted_name: string;
+    confidence: number;
+  } | null>(null);
+  const [detectionPreviewUrl, setDetectionPreviewUrl] = React.useState<
+    string | null
+  >(null);
+  const detectionInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (detectionPreviewUrl) URL.revokeObjectURL(detectionPreviewUrl);
+    };
+  }, [detectionPreviewUrl]);
+
+  const runDetection = React.useCallback(async (file: File) => {
+    setDetecting(true);
+    setDetectionResult(null);
+    setDetectionPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${getApiBase()}/api/vision2/yolo/predict`, {
+        method: "POST",
+        body: form,
+      });
+      if (!res.ok) throw new Error("인식 실패");
+      const json = await res.json();
+      setDetectionResult(json);
+    } catch {
+      alert("얼굴 인식에 실패했습니다.");
+    } finally {
+      setDetecting(false);
+    }
+  }, []);
 
   const fetchContacts = React.useCallback(async () => {
     try {
@@ -101,6 +140,18 @@ export default function AutomodePage() {
           >
             <Bot className="h-4 w-4" />
             오케스트레이터
+          </button>
+          <button
+            onClick={() => setView("detection")}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              view === "detection"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+          >
+            <ScanFace className="h-4 w-4" />
+            객체 탐지
           </button>
         </nav>
       </aside>
@@ -287,6 +338,63 @@ export default function AutomodePage() {
                     [{orchResult.tool}]
                   </p>
                   <p className="text-foreground">{orchResult.message}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === "detection" && (
+          <div className="mx-auto max-w-lg">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-primary">
+                <ScanFace className="h-5 w-5" strokeWidth={1.5} />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">
+                  객체 탐지
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  얼굴 사진을 올리면 YOLO 모델이 이름을 맞춰줍니다.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <input
+                ref={detectionInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) runDetection(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                onClick={() => detectionInputRef.current?.click()}
+                disabled={detecting}
+                className="w-full"
+              >
+                {detecting ? "인식 중..." : "얼굴 사진 업로드"}
+              </Button>
+              {detectionPreviewUrl && (
+                // eslint-disable-next-line @next/next/no-img-element -- blob: URL은 next/image 로더가 지원하지 않음
+                <img
+                  src={detectionPreviewUrl}
+                  alt="업로드한 얼굴 사진"
+                  className="mt-4 max-h-80 w-full rounded-lg object-contain"
+                />
+              )}
+              {detectionResult && (
+                <div className="mt-4 rounded-lg bg-muted px-4 py-3 text-sm">
+                  <p className="mb-1 font-medium text-muted-foreground">
+                    예측 결과
+                  </p>
+                  <p className="text-foreground">
+                    {detectionResult.predicted_name} (
+                    {(detectionResult.confidence * 100).toFixed(1)}%)
+                  </p>
                 </div>
               )}
             </div>
