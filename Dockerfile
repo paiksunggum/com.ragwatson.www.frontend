@@ -18,4 +18,4 @@ RUN npm run build
 
 
 # 5. Next.js 프로덕션 서버 실행 (3000 포트 오픈)
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]
